@@ -39,9 +39,9 @@ FEED_LIST    = "http://feeds.theplatform.com/ps/JSON/PortalService/2.2/getCatego
 
 FEEDS_LIST    = "http://feeds.theplatform.com/ps/JSON/PortalService/2.2/getReleaseList?PID=%s&startIndex=1&endIndex=500&query=categoryIDs|%s&query=BitrateEqualOrGreaterThan|400000&query=BitrateLessThan|601000&sortField=airdate&sortDescending=true&field=airdate&field=author&field=description&field=length&field=PID&field=thumbnailURL&field=title&contentCustomField=title"
 
-DIRECT_FEED = "http://release.theplatform.com/content.select?format=SMIL&pid=%s&UserName=Unknown&Embedded=True&TrackBrowser=True&Tracking=True&TrackLocation=True"
-
-####################################################################################################
+#DIRECT_FEED = "http://release.theplatform.com/content.select?format=SMIL&pid=%s&UserName=Unknown&Embedded=True&TrackBrowser=True&Tracking=True&TrackLocation=True"
+DIRECT_FEED = "http://release.theplatform.com/content.select?pid=%s&UserName=Unknown&Embedded=True&Portal=GlobalTV&TrackBrowser=True&Tracking=True&TrackLocation=True"
+###################################################################################################
 
 def Start():
     Plugin.AddPrefixHandler(VIDEO_PREFIX, MainMenu, L('VideoTitle'), ICON, ART)
@@ -72,31 +72,44 @@ def MainMenu():
 ####################################################################################################
 def VideoPlayer(sender, pid):
 
-    videosmil = HTTP.Request(DIRECT_FEED % pid).content
-    player = videosmil.split("ref src")
-    player = player[2].split('"')
-    #Log(player)
-    if ".mp4" in player[1]:
-        player = player[1].replace(".mp4", "")
-        try:
-            clip = player.split(";")
-            clip = "mp4:" + clip[4]
-        except:
-            clip = player.split("/video/")
-            player = player.split("/video/")[0]
-            clip = "mp4:/video/" + clip[-1]
-    else:
-        player = player[1].replace(".flv", "")
-        try:
-            clip = player.split(";")
-            clip = clip[4]
-        except:
-            clip = player.split("/video/")
-            player = player.split("/video/")[0]
-            clip = "/video/" + clip[-1]
+    SMIL = HTML.ElementFromURL(DIRECT_FEED % pid)
+    
+    player = SMIL.xpath('//choice/url')[1].text
+    Log(player)
+    try:
+        clip = player.split('<break>')[1]
+        player = player.split('<break>')[0]
+    except:
+        clip = player.split('{break}')[1]
+        player = player.split('{break}')[0]
 
-    #Log(player)
-    #Log(clip)
+    if clip[-3:] in ["mp4", "flv"]:
+        clip = clip[:-4]
+    
+    #if "mp4:" in clip:
+    #    player = player.split('&slist=')[0]
+    
+    #if ".mp4" in player[1]:
+    #    player = player[1].replace(".mp4", "")
+    #    try:
+    #        clip = player.split(";")
+    #        clip = "mp4:" + clip[4]
+    #    except:
+    #        clip = player.split("/video/")
+    #        player = player.split("/video/")[0]
+    #        clip = "mp4:/video/" + clip[-1]
+    #else:
+    #    player = player[1].replace(".flv", "")
+    #    try:
+    #        clip = player.split(";")
+    #        clip = clip[4]
+    #    except:
+    #        clip = player.split("/video/")
+    #        player = player.split("/video/")[0]
+    #        clip = "/video/" + clip[-1]
+
+    Log("player:" + player)
+    Log("clip:" + clip)
     return Redirect(RTMPVideoItem(player, clip))
     
 ####################################################################################################
@@ -121,11 +134,6 @@ def VideosPage(sender, pid, id):
     
     return dir
     
-#def ClipsPage(sender, showname):
-    #dir = MediaContainer(title2=sender.itemTitle, viewGroup="InfoList")
-    #dir.Append(Function(DirectoryItem(VideosPage, "Full Episodes"), clips="episode", showname=showname))
-    #dir.Append(Function(DirectoryItem(VideosPage, "Clips"), clips="", showname=showname))
-    #return dir
 ####################################################################################################
 def FoodPage(sender, network):
 
@@ -156,7 +164,7 @@ def GlobalPage(sender, network):
 ####################################################################################################
 
 def HGTVPage(sender, network):
-    dir = MediaContainer(title2=sender.itemTitle, viewGroup="List", art=sender.art)
+    dir = MediaContainer(title2=sender.itemTitle, viewGroup="InfoList", art=sender.art)
 
     content = JSON.ObjectFromURL(FEED_LIST % (network[0], network[1]))
     for item in content['items']:

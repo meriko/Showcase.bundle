@@ -7,7 +7,7 @@
 	<key>CFBundleExecutable</key>
 	<string>Hello</string>
 	<key>CFBundleIdentifier</key>
-	<string>com.plexapp.plugins.greattv.ca</string>
+	<string>com.plexapp.plugins.showcase</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundlePackageType</key>
@@ -17,7 +17,7 @@
 	<key>CFBundleVersion</key>
 	<string>1.0</string>
 	<key>PlexClientPlatforms</key>
-	<string>MacOSX,LGTV</string>
+	<string>MacOSX</string>
 	<key>PlexFrameworkVersion</key>
 	<string>2</string>
 	<key>PlexPluginConsoleLogging</key>

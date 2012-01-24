@@ -1,14 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <site site="http://www\.showcase\.ca/.*"
-	    plugin=".*/video/swf/flvPlayer.swf"
-			initialState="playing"
-			version="1.0">
-			
+	plugin=".*/video/swf/flvPlayer.swf"
+	initialState="playing"
+	version="1.0">
+
 	<crop x="0" y="0" width="912" height="510" />
 
 	<!-- PLAYING -->
 	<state name="playing">
-		
+
 		<!-- Click to pause -->
 		<event>
 			<condition>
@@ -19,12 +19,12 @@
 				<click x="20" y="500" />
 			</action>
 		</event>
-		
+
 	</state>
-	
+
 	<!-- PAUSED -->
 	<state name="paused">
-		
+
 		<!-- Wait for play command -->
 		<event>
 			<condition>
@@ -35,6 +35,7 @@
 				<click x="20" y="500" />
 			</action>
 		</event>
-		
+
 	</state>
+
 </site>

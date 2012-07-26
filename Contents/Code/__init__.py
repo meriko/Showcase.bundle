@@ -90,7 +90,6 @@ def VideosPage(pid, iid, show):
 			pid = str(item['PID'])
 			iid = str(item['contentID'])
 			url = "http://www.showcase.ca/video/video.html?v="+iid+"#video"
-			Log.Debug(url)
 			summary =  item['description']
 			duration = item['length']
 			thumb_url = item['thumbnailURL']

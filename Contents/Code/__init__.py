@@ -10,18 +10,11 @@ LOADCATS = {
 ###################################################################################################
 def Start():
 
-	Plugin.AddPrefixHandler("/video/showcase", MainMenu, TITLE)
-
-	Plugin.AddViewGroup("InfoList", viewMode="InfoList", mediaType="items")
-	Plugin.AddViewGroup("List", viewMode="List", mediaType="items")
-
-	# Setup the default attributes for the ObjectContainer
 	ObjectContainer.title1 = TITLE
-	ObjectContainer.view_group = 'List'
-
 	HTTP.CacheTime = CACHE_1HOUR
 
 ####################################################################################################
+@handler('/video/showcase', TITLE)
 def MainMenu():
 
 	return LoadShowList(cats='shows')
@@ -29,7 +22,7 @@ def MainMenu():
 ####################################################################################################
 def LoadShowList(cats):
 
- 	oc = ObjectContainer(view_group="List")
+ 	oc = ObjectContainer()
 	network = SHOWCASE_PARAMS
 
 	content = JSON.ObjectFromURL(FEED_LIST % (network[0], network[1]))
@@ -61,7 +54,7 @@ def LoadShowList(cats):
 ####################################################################################################
 def VideosPage(pid, iid, show):
 
-	oc = ObjectContainer(view_group='InfoList')
+	oc = ObjectContainer()
 	pageURL = FEEDS_LIST % (pid, iid)
 	feeds = JSON.ObjectFromURL(pageURL)
 	showList = {}

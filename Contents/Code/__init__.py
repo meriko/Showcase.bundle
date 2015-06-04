@@ -1,151 +1,170 @@
-TITLE = "Showcase"
-SHOWCASE_PARAMS = ["sx9rVurvXUY4nOXBoB2_AdD1BionOoPy", "z/Showcase%20Video%20Centre"]
-FEED_LIST = "http://feeds.theplatform.com/ps/JSON/PortalService/2.2/getCategoryList?PID=%s&startIndex=1&endIndex=500&query=hasReleases&query=CustomText|PlayerTag|%s&field=airdate&field=fullTitle&field=author&field=description&field=PID&field=thumbnailURL&field=title&contentCustomField=title&field=ID&field=parent"
-FEEDS_LIST = "http://feeds.theplatform.com/ps/JSON/PortalService/2.2/getReleaseList?field=ID&field=contentID&field=PID&field=URL&field=airdate&PID=%s&contentCustomField=Episode&contentCustomField=Season&query=CategoryIDs|%s&field=thumbnailURL&field=title&field=length&field=description&startIndex=1&endIndex=500&sortField=airdate&sortDescending=true"
-DIRECT_FEED = "http://release.theplatform.com/content.select?format=SMIL&pid=%s&UserName=Unknown&Embedded=True"
-LOADCATS = {
-	'shows':['/Shows/']
-}
+PREFIX = '/video/showcase'
 
-###################################################################################################
+TITLE = 'Showcase'
+ART = 'art-default.jpg'
+ICON = 'icon-default.png'
+
+MAIN_URL = 'http://common.farm1.smdg.ca/Forms/PlatformVideoFeed?platformUrl=http%3A//feed.theplatform.com/f/dtjsEC/9H6qyshBZU3E/categories%3Fpretty%3Dtrue%26byHasReleases%3Dtrue%26range%3D1-1000%26byCustomValue%3D%7Bplayertag%7D%7Bz/Showcase%20Video%20Centre%7D%26sort%3DfullTitle'
+FEED_URL = 'http://feed.theplatform.com/f/dtjsEC/9H6qyshBZU3E?count=true&byCategoryIDs=%s&startIndex=%s&endIndex=%s&sort=pubDate|desc'
+
+MOST_RECENT_ITEMS = 50
+VIDEO_URL_TEMPLATE = 'http://www.showcase.ca/video/video.html?v=%s'
+FULL_EPISODE_TYPES = ['episode', 'webisode']
+
+####################################################################################################
 def Start():
+    # Setup the default attributes for the ObjectContainer
+    ObjectContainer.title1 = TITLE
 
-	ObjectContainer.title1 = TITLE
-	HTTP.CacheTime = CACHE_1HOUR
+    HTTP.CacheTime = CACHE_1HOUR
+    HTTP.User_Agent = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_2) AppleWebKit/600.3.18 (KHTML, like Gecko) Version/8.0.3 Safari/600.3.18'
 
-####################################################################################################
-@handler('/video/showcase', TITLE)
+##########################################################################################
+@handler(PREFIX, TITLE)
 def MainMenu():
+    oc = ObjectContainer()
+    
+    title = 'Most Recent'
+    oc.add(
+        DirectoryObject(
+            key = Callback(MostRecent, title=title),
+            title = title
+        )
+    )    
+    
+    for object in GetEntries().objects:
+        oc.add(object)
+    
+    return oc
+    
+##########################################################################################
+@route(PREFIX + '/mostrecent')
+def MostRecent(title):
 
-	return LoadShowList(cats='shows')
+    oc = ObjectContainer(title2 = title)    
+    json_data = JSON.ObjectFromURL(FEED_URL % ('', 1, MOST_RECENT_ITEMS))
+    
+    for entry in json_data['entries']:
+        if entry['pl1$clipType'] not in FULL_EPISODE_TYPES:
+            continue
 
-####################################################################################################
-def LoadShowList(cats):
+        oc.add(CreateVideoObject(entry))
 
- 	oc = ObjectContainer()
-	network = SHOWCASE_PARAMS
+    return oc
 
-	content = JSON.ObjectFromURL(FEED_LIST % (network[0], network[1]))
-	showList = {}
-	showCount = 0
-	items = content['items']
+##########################################################################################
+@route(PREFIX + '/getentries', depth = int)
+def GetEntries(title="", depth=1, id=None):
+    
+    oc = ObjectContainer(title2 = title)
+    
+    data = HTTP.Request(MAIN_URL).content
+    data = data[1:-1]
+    json_data = JSON.ObjectFromString(data)
+    
+    for item in json_data['items']:
+        if not item['fullTitle'].startswith("SHOWVC/"):
+            continue
+            
+        if item['depth'] != depth:
+            continue
+        
+        if id:
+            if id != item['parentId']:
+                continue
 
-	for item in items:
-		if WantedCats(item['fullTitle'], cats):
-			title = item['fullTitle'].split('/')[2]
-			iid = item['ID']
-			thumb_url = item['thumbnailURL']
+        if item['hasReleases'] and depth > 1:
+            oc.add(
+                DirectoryObject(
+                    key = Callback(Videos, show=item['title'], id=item['id'].split("/")[-1]),
+                    title = item['title']
+                )
+            )
+        else:
+            oc.add(
+                DirectoryObject(
+                    key = Callback(GetEntries, title=item['title'], depth=depth+1, id=item['id']),
+                    title = item['title']
+                )
+            )
+    
+    oc.objects.sort(key = lambda obj: obj.title)
+    
+    return oc 
 
-			if not(title in showList):
-				showList[title] = ""
+##########################################################################################
+@route(PREFIX + '/clips')
+def Clips(show, id):
+    return Videos(show=show, id=id, full_episodes_only=False)
 
-				oc.add(
-					DirectoryObject(
-						key = Callback(SeasonsPage, cats=cats, network=network, showtitle=title),
-						title = title,
-						thumb = Resource.ContentsOfURLWithFallback(url=thumb_url)
-					)
-				)
-	# sort here
-	oc.objects.sort(key = lambda obj: obj.title)
+##########################################################################################
+@route(PREFIX + '/videos', full_episodes_only = bool)
+def Videos(show, id, full_episodes_only=True):
 
- 	return oc
+    oc = ObjectContainer(title2 = show)
+    
+    if full_episodes_only:
+        clips_oc = Clips(show, id)
+        
+        if len(clips_oc) > 1:
+            oc.add(DirectoryObject(key=Callback(Clips, show=show, id=id), title="Clips"))
+    
+    json_data = JSON.ObjectFromURL(FEED_URL % (id, 1, 1000))    
+    
+    for entry in json_data['entries']:
+        if full_episodes_only:
+            if entry['pl1$clipType'] not in FULL_EPISODE_TYPES:
+                continue
+        else:
+            if entry['pl1$clipType'] in FULL_EPISODE_TYPES:
+                continue
 
-####################################################################################################
-def VideosPage(pid, iid, show):
+        oc.add(CreateVideoObject(entry))
 
-	oc = ObjectContainer()
-	pageURL = FEEDS_LIST % (pid, iid)
-	feeds = JSON.ObjectFromURL(pageURL)
-	showList = {}
+    return oc
 
-	for item in feeds['items']:
-		title = item['title']
+##########################################################################################
+def CreateVideoObject(entry):
 
-		try:
-			# show exists, skip adding multiples
-			if showList[title]:
-				continue
-		except:
-			# show doesn't exist, add it
-			showList[title]=""
-			pid = str(item['PID'])
-			iid = str(item['contentID'])
-			url = "http://www.showcase.ca/video/video.html?v="+iid+"#video"
-			summary =  item['description']
-			duration = item['length']
-			thumb_url = item['thumbnailURL']
-			airdate = int(item['airdate'])/1000
-			originally_available_at = Datetime.FromTimestamp(airdate).date()
+    url = VIDEO_URL_TEMPLATE % entry['id'].split("/")[-1]
+    title = entry['title']
+    summary = entry['description'] if 'description' in entry else None
+    thumb = entry['defaultThumbnailUrl'] if 'defaultThumbnailUrl' in entry else None
+    
+    show = None
+    season = None
+    index = None
+    if entry['pl1$clipType'] in FULL_EPISODE_TYPES:
+        show = entry['pl1$show'] if 'pl1$show' in entry else None
+        season = int(entry['pl1$season']) if 'pl1$season' in entry else None
+        index = int(entry['pl1$episode']) if 'pl1$episode' in entry else None
 
-			try:
-				# try to set the seasons and episode info
-				season = item['contentCustomData'][1]['value']
-				seasonint = int(float(season))
-				episode = item['contentCustomData'][0]['value']
-				episodeint = int(float(episode))
+    originally_available_at = Datetime.FromTimestamp(entry['pubDate'] / 1000).date() if 'pubDate' in entry else None
 
-				oc.add(
-					EpisodeObject(
-						url = url,
-						title = title,
-						summary=summary,
-						duration=duration,
-						thumb = Resource.ContentsOfURLWithFallback(url=thumb_url),
-						originally_available_at = originally_available_at,
-		 				season = seasonint,
-		 				index = episodeint
-					)
-				)
+    duration = None
+    if 'content' in entry:
+        if 'duration' in entry['content'][0]:
+            duration = int(float(entry['content'][0]['duration']) * 1000) 
 
-			except:
-				# if we don't get the season/episode info then don't set it
-				oc.add(
-					EpisodeObject(
-						url = url,
-						title = title,
-						summary=summary,
-						duration=duration,
-						thumb = Resource.ContentsOfURLWithFallback(url=thumb_url),
-						originally_available_at = originally_available_at
-					)
-				)
+    if entry['pl1$clipType'] in FULL_EPISODE_TYPES:
+        return EpisodeObject(
+            url = url,
+            title = title,
+            summary = summary,
+            thumb = thumb,
+            show = show,
+            season = season,
+            index = index,
+            originally_available_at = originally_available_at,
+            duration = duration
+        )
+    else:
+        return VideoClipObject(
+            url = url,
+            title = title,
+            summary = summary,
+            thumb = thumb,
+            originally_available_at = originally_available_at,
+            duration = duration
+        )
 
-	return oc
-
-####################################################################################################
-def SeasonsPage(cats, network, showtitle):
-
-	oc = ObjectContainer()
-	pageURL = FEED_LIST % (network[0], network[1])
-	content = JSON.ObjectFromURL(pageURL)
-	season_list = []
-
-	for item in content['items']:
-		if WantedCats(item['parent'], cats) and showtitle in item['fullTitle']:
-			title = item['fullTitle'].split('/')[3]
-
-			if title not in season_list:
-				season_list.append(title)
-				iid = item['ID']
-				thumb_url = item['thumbnailURL']
-
-				oc.add(
-					DirectoryObject(
-						key = Callback(VideosPage, pid=network[0], iid=iid, show=showtitle),
-						title = title,
-						thumb = Resource.ContentsOfURLWithFallback(url=thumb_url)
-					)
-				)
-
-	oc.objects.sort(key = lambda obj: obj.title)
-
-	return oc
-
-####################################################################################################
-def WantedCats(thisShow, cats):
-
-	for show in LOADCATS[cats]:
-		if show in thisShow:
-			return True
-	return False
